@@ -59,16 +59,17 @@ with col_a:
     st.subheader("🏆 Top 5 Ganadoras")
     top_g = net_df[net_df["Cambio Neto (ha)"] > 0].head(5)
 # Reemplaza la línea 61 con:
-def color_texto(valor):
-    """Cambia color del texto según el valor"""
+def resaltar_cambio(valor):
+    """Resalta valores positivos en verde y negativos en rojo"""
     if isinstance(valor, (int, float)):
         if valor > 0:
-            return 'color: green'
+            return 'background-color: #90EE90'  # Verde claro
         elif valor < 0:
-            return 'color: red'
+            return 'background-color: #FFB6C1'  # Rojo claro
     return ''
 
-styled_df = top_g.style.format({"Cambio Neto (ha)": "{:,.0f}"}).applymap(color_texto, subset=["Cambio Neto (ha)"])
+# Aplicar estilo sin matplotlib
+styled_df = top_g.style.format({"Cambio Neto (ha)": "{:,.0f}"}).applymap(resaltar_cambio, subset=["Cambio Neto (ha)"])
 st.dataframe(styled_df, use_container_width=True)
 with col_b:
     st.subheader("📉 Top 5 Perdedoras")
