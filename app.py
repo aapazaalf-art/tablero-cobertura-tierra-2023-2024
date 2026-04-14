@@ -48,29 +48,34 @@ col1.metric("Coberturas", len(df))
 col2.metric("Ganadoras netas", (net_change > 0).sum())
 col3.metric("Perdedoras netas", (net_change < 0).sum())
 
-# Cambio Neto con colores por cobertura
+# Cambio Neto con colores por cobertura y valores visibles
 st.subheader("📈 Cambio Neto por Cobertura (hectáreas)")
 net_df = pd.DataFrame({
     "Cobertura": net_change.index,
     "Cambio Neto (ha)": net_change.values
 }).sort_values("Cambio Neto (ha)", ascending=False)
 
-# Asignar colores según la cobertura
-bar_colors = [color_dict[cobertura] for cobertura in net_df["Cobertura"]]
-
 fig_net = px.bar(
     net_df, x="Cambio Neto (ha)", y="Cobertura", orientation="h",
     color="Cobertura",
     color_discrete_map=color_dict,
+    text="Cambio Neto (ha)",  # Mostrar valores en las barras
     height=700
 )
-fig_net.update_traces(marker_line_color='black', marker_line_width=1.5)
+fig_net.update_traces(
+    marker_line_color='black', 
+    marker_line_width=1.5,
+    texttemplate='%{text:,.0f} ha',  # Formato de los valores
+    textposition='outside'  # Posición del texto fuera de la barra
+)
 fig_net.update_layout(
     yaxis=dict(categoryorder="total ascending"), 
     showlegend=False,
     plot_bgcolor='white',
     paper_bgcolor='white',
-    font=dict(color='black', size=12)
+    font=dict(color='black', size=12),
+    xaxis_title="Cambio Neto (hectáreas)",
+    yaxis_title="Tipo de Cobertura"
 )
 fig_net.update_xaxes(title_font_color='black', tickfont_color='black')
 fig_net.update_yaxes(title_font_color='black', tickfont_color='black')
@@ -114,7 +119,7 @@ for src_idx in sources:
     if src_color.startswith('rgb'):
         link_colors.append(src_color.replace('rgb', 'rgba').replace(')', ', 0.6)'))
     elif src_color.startswith('#'):
-        # Convertir hex a rgba (simplificado)
+        # Convertir hex a rgba
         r = int(src_color[1:3], 16)
         g = int(src_color[3:5], 16)
         b = int(src_color[5:7], 16)
@@ -124,7 +129,19 @@ for src_idx in sources:
 
 # Preparar etiquetas de nodos con valores totales
 total_por_nodo = df.sum(axis=1).abs() + df.sum(axis=0).abs()
-node_labels = [f"<b>{label}</b><br>({total_por_nodo[label]:,.0f} ha)" for label in labels]
+node_labels = [f"{label}<br>({total_por_nodo[label]:,.0f} ha)" for label in labels]
+
+# Crear el Sankey con posiciones predefinidas para mejor visualización
+# Calcular posiciones basadas en cambio neto
+node_x = []
+node_y = []
+for i, categoria in enumerate(labels):
+    if net_change[categoria] > 0:  # Ganadoras a la derecha
+        node_x.append(0.8)
+    else:  # Perdedoras a la izquierda
+        node_x.append(0.2)
+    # Distribuir verticalmente
+    node_y.append(i / (len(labels) - 1) if len(labels) > 1 else 0.5)
 
 fig_sankey = go.Figure(data=[go.Sankey(
     node=dict(
@@ -133,8 +150,8 @@ fig_sankey = go.Figure(data=[go.Sankey(
         line=dict(color="black", width=1.5),
         label=node_labels,
         color=node_colors,
-        x=[0.1] * len(labels),
-        y=np.linspace(0, 1, len(labels))
+        x=node_x,  # Posiciones X predefinidas
+        y=node_y   # Posiciones Y predefinidas
     ),
     link=dict(
         source=sources,
@@ -150,7 +167,7 @@ fig_sankey = go.Figure(data=[go.Sankey(
 
 fig_sankey.update_layout(
     height=800,
-    font=dict(size=12, color='black', family='Arial'),
+    font=dict(size=11, color='black', family='Arial'),
     title=dict(
         text="Principales transiciones de cobertura (hectáreas)",
         font=dict(size=16, color='black'),
@@ -161,24 +178,17 @@ fig_sankey.update_layout(
     hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial")
 )
 
-# Ajustar posición de nodos para mejor visualización
-for i in range(len(labels)):
-    if net_change.iloc[i] > 0:  # Ganadoras a la derecha
-        fig_sankey.data[0].node.x[i] = 0.8
-    else:  # Perdedoras a la izquierda
-        fig_sankey.data[0].node.x[i] = 0.2
-
 st.plotly_chart(fig_sankey, use_container_width=True)
 
-# Heatmap con nombres completos
+# Heatmap con nombres completos y valores visibles
 with st.expander("📋 Matriz Completa - Heatmap"):
-    # Mostrar nombres completos en el heatmap
+    # Mostrar nombres completos en el heatmap con valores
     fig_heat = px.imshow(
         df, 
         color_continuous_scale="RdBu_r", 
         aspect="auto",
         labels=dict(x="Hacia 2024", y="Desde 2023"),
-        text_auto='.0f'
+        text_auto='.0f'  # Mostrar valores numéricos en cada celda
     )
     fig_heat.update_layout(
         height=800,
@@ -186,9 +196,44 @@ with st.expander("📋 Matriz Completa - Heatmap"):
         plot_bgcolor='white',
         paper_bgcolor='white'
     )
+    fig_heat.update_traces(
+        texttemplate='%{text:,.0f}',
+        textfont=dict(size=9, color='black')
+    )
     fig_heat.update_xaxes(tickangle=45, tickfont=dict(size=9))
     fig_heat.update_yaxes(tickfont=dict(size=9))
     st.plotly_chart(fig_heat, use_container_width=True)
+
+# Gráfico de matriz de transiciones (versión alternativa con valores)
+with st.expander("📊 Matriz de Transiciones - Barras Apiladas"):
+    st.markdown("**Transiciones desde cada cobertura en 2023 hacia 2024**")
+    
+    # Crear gráfico de barras apiladas para visualizar transiciones
+    df_transitions = df.copy()
+    df_transitions = df_transitions.apply(lambda x: -x)  # Convertir a positivos para visualización
+    
+    fig_stack = px.bar(
+        df_transitions,
+        x=df_transitions.index,
+        y=df_transitions.columns,
+        title="Distribución de transiciones por cobertura de origen",
+        labels={"value": "Hectáreas transformadas", "variable": "Hacia 2024"},
+        text_auto='.0f'
+    )
+    fig_stack.update_layout(
+        height=600,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(color='black', size=11),
+        xaxis_title="Cobertura de origen (2023)",
+        yaxis_title="Hectáreas transformadas"
+    )
+    fig_stack.update_traces(
+        texttemplate='%{text:,.0f}',
+        textposition='inside',
+        textfont=dict(size=9, color='white')
+    )
+    st.plotly_chart(fig_stack, use_container_width=True)
 
 # Descarga
 st.download_button(
@@ -198,4 +243,15 @@ st.download_button(
     "text/csv"
 )
 
-st.caption("Tablero generado con Streamlit + Plotly • Cada cobertura tiene un color único • Sankey con flujos coloreados por cobertura origen")
+# Descargar matriz completa
+csv_matrix = df.copy()
+csv_matrix['Tipo'] = csv_matrix.index
+csv_matrix = csv_matrix.reset_index(drop=False)
+st.download_button(
+    "⬇️ Descargar matriz completa (CSV)",
+    csv_matrix.to_csv(index=False).encode("utf-8"),
+    "matriz_transiciones_2023-2024.csv",
+    "text/csv"
+)
+
+st.caption("📊 Tablero generado con Streamlit + Plotly • Cada cobertura tiene un color único • Valores numéricos visibles en todos los gráficos")
