@@ -58,7 +58,13 @@ col_a, col_b = st.columns(2)
 with col_a:
     st.subheader("🏆 Top 5 Ganadoras")
     top_g = net_df[net_df["Cambio Neto (ha)"] > 0].head(5)
+  # En lugar de la línea 61, usa este código:
+try:
+    # Intentar mostrar con gradiente si matplotlib está disponible
     st.dataframe(top_g.style.format({"Cambio Neto (ha)": "{:,.0f}"}).background_gradient(cmap="Greens"), use_container_width=True)
+except ImportError:
+    # Fallback: mostrar sin gradiente
+    st.dataframe(top_g.style.format({"Cambio Neto (ha)": "{:,.0f}"}), use_container_width=True)
 
 with col_b:
     st.subheader("📉 Top 5 Perdedoras")
