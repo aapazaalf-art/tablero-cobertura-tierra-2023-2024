@@ -304,6 +304,7 @@ summary_table = pd.DataFrame({
 summary_table = summary_table.sort_values("Cambio Neto (ha)", ascending=False)
 
 def color_negative_red(val):
+    """Aplica color rojo a valores negativos y verde a positivos"""
     if isinstance(val, (int, float)):
         if val > 0:
             return 'color: #00CC96'
@@ -311,10 +312,11 @@ def color_negative_red(val):
             return 'color: #EF553B'
     return ''
 
+# CORREGIDO: applymap -> map (pandas 2.1+)
 styled_table = summary_table.style.format({
     "Cambio Neto (ha)": "{:,.0f}",
     "Porcentaje del total": "{:.2f}%"
-}).applymap(color_negative_red, subset=["Cambio Neto (ha)"])
+}).map(color_negative_red, subset=["Cambio Neto (ha)"])
 
 st.dataframe(styled_table, use_container_width=True, height=400)
 
