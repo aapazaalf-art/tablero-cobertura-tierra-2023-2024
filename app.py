@@ -58,19 +58,13 @@ col_a, col_b = st.columns(2)
 with col_a:
     st.subheader("🏆 Top 5 Ganadoras")
     top_g = net_df[net_df["Cambio Neto (ha)"] > 0].head(5)
-# Reemplaza la línea 61 con:
-def resaltar_cambio(valor):
-    """Resalta valores positivos en verde y negativos en rojo"""
-    if isinstance(valor, (int, float)):
-        if valor > 0:
-            return 'background-color: #90EE90'  # Verde claro
-        elif valor < 0:
-            return 'background-color: #FFB6C1'  # Rojo claro
-    return ''
-
-# Aplicar estilo sin matplotlib
-styled_df = top_g.style.format({"Cambio Neto (ha)": "{:,.0f}"}).applymap(resaltar_cambio, subset=["Cambio Neto (ha)"])
-st.dataframe(styled_df, use_container_width=True)
+# En lugar de la línea 61, usa este código:
+try:
+    # Intentar mostrar con gradiente si matplotlib está disponible
+    st.dataframe(top_g.style.format({"Cambio Neto (ha)": "{:,.0f}"}).background_gradient(cmap="Greens"), use_container_width=True)
+except ImportError:
+    # Fallback: mostrar sin gradiente
+    st.dataframe(top_g.style.format({"Cambio Neto (ha)": "{:,.0f}"}), use_container_width=True)
 with col_b:
     st.subheader("📉 Top 5 Perdedoras")
     top_l = net_df[net_df["Cambio Neto (ha)"] < 0].nsmallest(5, "Cambio Neto (ha)")
