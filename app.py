@@ -129,7 +129,7 @@ fig_net = px.bar(
     color="Cobertura",
     color_discrete_map=coverage_colors,
     height=700,
-    text="Cambio Neto (ha)"  # Agregar valores en las barras
+    text="Cambio Neto (ha)"
 )
 
 # Mejorar formato del gráfico
@@ -166,14 +166,9 @@ with col_a:
     st.subheader("🏆 Top 5 Ganancias Netas")
     top_g = net_df[net_df["Cambio Neto (ha)"] > 0].head(5)
     if not top_g.empty:
-        # Formatear para mostrar
         display_df = top_g[["Cobertura", "Cambio Neto (ha)"]].copy()
         display_df["Cambio Neto (ha)"] = display_df["Cambio Neto (ha)"].apply(lambda x: f"{x:,.0f}")
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
     else:
         st.info("No hay coberturas con ganancias netas")
 
@@ -183,11 +178,7 @@ with col_b:
     if not top_l.empty:
         display_df = top_l[["Cobertura", "Cambio Neto (ha)"]].copy()
         display_df["Cambio Neto (ha)"] = display_df["Cambio Neto (ha)"].apply(lambda x: f"{x:,.0f}")
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
     else:
         st.info("No hay coberturas con pérdidas netas")
 
@@ -195,11 +186,12 @@ with col_b:
 st.subheader("🔄 Flujos de Transición (Sankey)")
 
 # Slider para umbral
+max_val = int(df.values.max()) if df.values.max() > 0 else 50000
 threshold = st.slider(
     "Mostrar solo flujos mayores a (ha)", 
     min_value=0, 
-    max_value=int(df.values.max()) if df.values.max() > 0 else 50000,
-    value=500, 
+    max_value=max_val,
+    value=min(500, max_val), 
     step=100,
     help="Filtra transiciones pequeñas para mejorar la visualización"
 )
@@ -215,16 +207,14 @@ for i in range(len(labels)):
     for j in range(len(labels)):
         if i != j:
             val = df.iloc[i, j]
-            if val > threshold:  # Transición positiva (pérdida para i, ganancia para j)
+            if val > threshold:
                 sources.append(i)
                 targets.append(j)
                 values.append(val)
-                # Color del enlace basado en la cobertura de origen
                 link_colors.append(coverage_colors.get(labels[i], '#808080'))
 
 # Verificar si hay datos para mostrar
 if len(sources) > 0:
-    # Crear Sankey con colores personalizados
     fig_sankey = go.Figure(data=[go.Sankey(
         node=dict(
             pad=20,
@@ -241,11 +231,10 @@ if len(sources) > 0:
             color=link_colors,
             hovertemplate='<b>%{source.label}</b> → <b>%{target.label}</b><br>'
                          'Área: %{value:,.0f} ha<br>'
-                         'Porcentaje del total: %{value:.1f}%<extra></extra>'
+                         'Porcentaje: %{value:.1f}%<extra></extra>'
         )
     )])
     
-    # Mejorar diseño
     fig_sankey.update_layout(
         height=800,
         font=dict(size=12, color='black', family='Arial'),
@@ -253,45 +242,34 @@ if len(sources) > 0:
             text="Principales transiciones entre coberturas (hectáreas)",
             font=dict(size=16, color='black')
         ),
-        hoverlabel=dict(
-            bgcolor="white",
-            font_size=12,
-            font_family="Arial"
-        )
+        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial")
     )
     
     st.plotly_chart(fig_sankey, use_container_width=True)
     
-    # Mostrar estadísticas del Sankey
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Transiciones mostradas", len(sources), help="Número de flujos visibles")
+        st.metric("Transiciones mostradas", len(sources))
     with col2:
-        st.metric("Total área en transiciones", f"{sum(values):,.0f} ha", help="Suma de todas las transiciones mostradas")
+        st.metric("Total área en transiciones", f"{sum(values):,.0f} ha")
     with col3:
         if sum(values) > 0:
-            avg_flow = sum(values) / len(sources)
-            st.metric("Flujo promedio", f"{avg_flow:,.0f} ha", help="Área promedio por transición")
+            st.metric("Flujo promedio", f"{sum(values) / len(sources):,.0f} ha")
 else:
     st.warning(f"No hay transiciones mayores a {threshold:,.0f} hectáreas. Reduce el umbral para ver más flujos.")
 
 # ==================== MATRIZ COMPLETA CON HEATMAP ====================
 with st.expander("📋 Matriz Completa de Transiciones - Heatmap Interactivo", expanded=False):
     
-    # Preparar datos para heatmap
-    heatmap_data = df.copy()
-    
-    # Crear heatmap mejorado
     fig_heat = px.imshow(
-        heatmap_data,
-        text_auto=True,  # Mostrar valores en celdas
+        df,
+        text_auto=True,
         color_continuous_scale="RdBu_r",
         aspect="auto",
         labels=dict(x="Cobertura en 2024", y="Cobertura en 2023", color="Hectáreas"),
         title="Matriz de Transiciones 2023 → 2024"
     )
     
-    # Mejorar visualización del heatmap
     fig_heat.update_traces(
         texttemplate='%{z:,.0f}',
         textfont=dict(size=10, color='black'),
@@ -307,19 +285,17 @@ with st.expander("📋 Matriz Completa de Transiciones - Heatmap Interactivo", e
     
     st.plotly_chart(fig_heat, use_container_width=True)
     
-    # Mostrar estadísticas de la matriz
     st.info(f"""
-    📊 **Resumen de la matriz:**
+    **Resumen de la matriz:**
     - Total de transiciones positivas: {df[df > 0].count().sum():,}
     - Total de transiciones negativas: {df[df < 0].count().sum():,}
     - Valor máximo de transición: {df.max().max():,.0f} ha
     - Valor mínimo de transición: {df.min().min():,.0f} ha
     """)
 
-# ==================== TABLA DE CAMBIOS NETA CON FORMATO ====================
+# ==================== TABLA DE CAMBIOS NETOS ====================
 st.subheader("📊 Tabla Completa de Cambios Netos")
 
-# Crear tabla formateada
 summary_table = pd.DataFrame({
     "Cobertura": net_change.index,
     "Cambio Neto (ha)": net_change.values,
@@ -327,9 +303,7 @@ summary_table = pd.DataFrame({
 })
 summary_table = summary_table.sort_values("Cambio Neto (ha)", ascending=False)
 
-# Formato condicional con colores
 def color_negative_red(val):
-    """Aplica color rojo a valores negativos y verde a positivos"""
     if isinstance(val, (int, float)):
         if val > 0:
             return 'color: #00CC96'
@@ -350,7 +324,6 @@ st.subheader("⬇️ Exportar Resultados")
 col_download1, col_download2, col_download3 = st.columns(3)
 
 with col_download1:
-    # Descargar cambios netos
     csv_net = summary_table.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="📥 Cambios Netos (CSV)",
@@ -361,7 +334,6 @@ with col_download1:
     )
 
 with col_download2:
-    # Descargar matriz completa
     csv_matrix = df.to_csv().encode('utf-8')
     st.download_button(
         label="📥 Matriz Completa (CSV)",
@@ -372,7 +344,6 @@ with col_download2:
     )
 
 with col_download3:
-    # Descargar resumen estadístico
     stats_df = pd.DataFrame({
         "Métrica": [
             "Total coberturas",
@@ -417,7 +388,11 @@ st.caption("""
 
 # Información de dependencias
 with st.expander("ℹ️ Información técnica"):
-    st.markdown("""
-    **Dependencias requeridas:**
-    ```bash
-    pip install streamlit pandas plotly numpy openpyxl
+    st.markdown("**Dependencias requeridas:**")
+    st.code("pip install streamlit pandas plotly numpy openpyxl", language="bash")
+    st.markdown("**Estructura del archivo Excel:**")
+    st.markdown("- Hoja llamada: `Hoja1`")
+    st.markdown("- Formato: Matriz cuadrada donde filas = coberturas en 2023, columnas = coberturas en 2024")
+    st.markdown("- Valores: Hectáreas de transición")
+    st.markdown("**Ejecutar la app:**")
+    st.code("streamlit run app.py", language="bash")
