@@ -3,13 +3,52 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
+import re
 
 # Configuración de la página
-st.set_page_config(page_title="Cambios Cobertura 2023-2024", layout="wide", page_icon="🌳")
+st.set_page_config(page_title="Tablero de Cambios de Cobertura", layout="wide", page_icon="🌳")
 
-# Título y descripción
-st.title("🌳 Tablero Ejecutivo: Cambios en Cobertura del Suelo 2023-2024")
-st.markdown("**Análisis de transiciones 2023 → 2024** | Ganancias (+) y Pérdidas (-) en hectáreas")
+# ==================== FUNCIÓN PARA EXTRAER AÑOS DEL NOMBRE DEL ARCHIVO ====================
+def extract_years_from_filename(filename: str):
+    """
+    Extrae dos años de 4 dígitos del nombre del archivo.
+    Ejemplos: "2023 - 2024.xlsx" -> ("2023", "2024")
+              "transiciones_2020_2021.xlsx" -> ("2020", "2021")
+              "2022-2023 data.xlsx" -> ("2022", "2023")
+    Retorna (None, None) si no encuentra dos años.
+    """
+    # Busca patrones como 2023-2024, 2023 - 2024, 2023_2024, 2023→2024, etc.
+    pattern = r'(\d{4})\s*[-–—_→]\s*(\d{4})'
+    match = re.search(pattern, filename)
+    if match:
+        return match.group(1), match.group(2)
+    # Busca dos años consecutivos separados por cualquier no dígito
+    numbers = re.findall(r'\d{4}', filename)
+    if len(numbers) >= 2:
+        return numbers[0], numbers[1]
+    return None, None
+
+def get_years_from_file(uploaded_file, default_path="data/2023 - 2024.xlsx"):
+    """
+    Determina los años a partir del archivo cargado o del archivo por defecto.
+    Retorna (year_start, year_end, filename_used).
+    """
+    if uploaded_file is not None:
+        filename = uploaded_file.name
+        year1, year2 = extract_years_from_filename(filename)
+        if year1 and year2:
+            return year1, year2, filename
+        else:
+            st.sidebar.warning(f"No se pudieron extraer años del nombre '{filename}'. Usando años manuales o por defecto.")
+            return None, None, filename
+    else:
+        # Archivo local por defecto
+        default_filename = default_path.split("/")[-1]
+        year1, year2 = extract_years_from_filename(default_filename)
+        if year1 and year2:
+            return year1, year2, default_filename
+        else:
+            return None, None, default_filename
 
 # ==================== DEFINICIÓN DE COLORES POR TIPO DE COBERTURA (VIBRANTES) ====================
 def get_coverage_colors(coverage_names):
@@ -67,13 +106,28 @@ def get_coverage_colors(coverage_names):
 st.sidebar.header("📁 Carga de datos")
 uploaded_file = st.sidebar.file_uploader("Subir nueva matriz Excel", type=["xlsx"])
 
+# Determinar años automáticamente o permitir ingreso manual
+auto_year1, auto_year2, filename_used = get_years_from_file(uploaded_file)
+
+if auto_year1 and auto_year2:
+    year_start = auto_year1
+    year_end = auto_year2
+    st.sidebar.success(f"✅ Años detectados: {year_start} → {year_end}")
+else:
+    # Si no se detectan automáticamente, el usuario puede ingresarlos manualmente
+    st.sidebar.warning("No se pudieron detectar los años del nombre del archivo. Ingrésalos manualmente:")
+    col_year1, col_year2 = st.sidebar.columns(2)
+    year_start = col_year1.text_input("Año inicial", value="2023", max_chars=4)
+    year_end = col_year2.text_input("Año final", value="2024", max_chars=4)
+
+# Cargar datos
 try:
     if uploaded_file is not None:
         df = pd.read_excel(uploaded_file, sheet_name="Hoja1", index_col=0)
         st.sidebar.success("✅ Archivo cargado correctamente")
     else:
         df = pd.read_excel("data/2023 - 2024.xlsx", sheet_name="Hoja1", index_col=0)
-        st.sidebar.info("Usando archivo local en /data")
+        st.sidebar.info(f"Usando archivo local: data/{filename_used}")
     
     # Limpiar datos
     df = df.fillna(0)
@@ -85,7 +139,7 @@ try:
         
 except FileNotFoundError:
     st.error("❌ No se encontró el archivo Excel. Por favor, sube uno usando el botón en la barra lateral.")
-    st.info("📌 El archivo debe contener una hoja llamada 'Hoja1' con una matriz de transiciones donde las filas son coberturas en 2023 y las columnas en 2024")
+    st.info("📌 El archivo debe contener una hoja llamada 'Hoja1' con una matriz de transiciones donde las filas son coberturas en el año inicial y las columnas en el año final")
     st.stop()
 except Exception as e:
     st.error(f"❌ Error al cargar el archivo: {str(e)}")
@@ -108,19 +162,21 @@ col2.metric("Ganadoras netas", (net_change > 0).sum(), help="Coberturas que aume
 col3.metric("Perdedoras netas", (net_change < 0).sum(), help="Coberturas que disminuyeron su área")
 col4.metric("Balance neto", f"{net_change.sum():+,.0f} ha", help="Cambio total neto (ganancias - pérdidas)")
 
-# ==================== GRÁFICO DE CAMBIO NETO (TAMAÑO TEXTO DUPLICADO, NEGRITA, COLORES VIBRANTES) ====================
-st.subheader("📈 Cambio Neto por Cobertura (hectáreas)")
+# ==================== TÍTULOS DINÁMICOS ====================
+st.title(f"🌳 Tablero Ejecutivo: Cambios en Cobertura del Suelo {year_start}–{year_end}")
+st.markdown(f"**Análisis de transiciones {year_start} → {year_end}** | Ganancias (+) y Pérdidas (-) en hectáreas")
+
+# ==================== GRÁFICO DE CAMBIO NETO ====================
+st.subheader(f"📈 Cambio Neto por Cobertura (hectáreas) - Período {year_start}–{year_end}")
 
 net_df = pd.DataFrame({
     "Cobertura": net_change.index,
     "Cambio Neto (ha)": net_change.values
 }).sort_values("Cambio Neto (ha)", ascending=False)
 
-# Obtener colores mejorados para las coberturas
 coverage_colors = get_coverage_colors(net_df["Cobertura"].tolist())
 net_df["Color"] = net_df["Cobertura"].map(coverage_colors)
 
-# Crear gráfico de barras con colores personalizados y formato mejorado
 fig_net = px.bar(
     net_df, 
     x="Cambio Neto (ha)", 
@@ -128,33 +184,32 @@ fig_net = px.bar(
     orientation="h",
     color="Cobertura",
     color_discrete_map=coverage_colors,
-    height=900,  # Aumentado para mejor visibilidad con texto más grande
+    height=900,
     text="Cambio Neto (ha)"
 )
 
-# Mejorar formato del gráfico: tamaños duplicados y negritas
 fig_net.update_traces(
     texttemplate='%{text:,.0f} ha',
     textposition='outside',
-    textfont=dict(size=20, color='black', weight='bold')  # Tamaño duplicado (10->20) y negrita
+    textfont=dict(size=20, color='black', weight='bold')
 )
 fig_net.update_layout(
     yaxis=dict(
         categoryorder="total ascending",
         title="Cobertura del Suelo",
-        title_font=dict(size=28, weight='bold'),  # Duplicado (14->28) y negrita
-        tickfont=dict(size=22, weight='bold')     # Duplicado (11->22) y negrita
+        title_font=dict(size=28, weight='bold'),
+        tickfont=dict(size=22, weight='bold')
     ),
     xaxis=dict(
         title="Cambio Neto (hectáreas)",
-        title_font=dict(size=28, weight='bold'),  # Duplicado y negrita
-        tickfont=dict(size=22, weight='bold'),    # Duplicado y negrita
+        title_font=dict(size=28, weight='bold'),
+        tickfont=dict(size=22, weight='bold'),
         gridcolor='lightgray'
     ),
     showlegend=False,
     plot_bgcolor='white',
     margin=dict(l=10, r=10, t=40, b=40),
-    font=dict(weight='bold')  # Negrita global por si acaso
+    font=dict(weight='bold')
 )
 
 st.plotly_chart(fig_net, use_container_width=True)
@@ -182,10 +237,9 @@ with col_b:
     else:
         st.info("No hay coberturas con pérdidas netas")
 
-# ==================== DIAGRAMA DE SANKEY MEJORADO (TAMAÑO TEXTO DUPLICADO, NEGRITA) ====================
-st.subheader("🔄 Flujos de Transición (Sankey)")
+# ==================== DIAGRAMA DE SANKEY ====================
+st.subheader(f"🔄 Flujos de Transición (Sankey) - {year_start} → {year_end}")
 
-# Slider para umbral
 max_val = int(df.values.max()) if df.values.max() > 0 else 50000
 threshold = st.slider(
     "Mostrar solo flujos mayores a (ha)", 
@@ -196,11 +250,8 @@ threshold = st.slider(
     help="Filtra transiciones pequeñas para mejorar la visualización"
 )
 
-# Preparar datos para Sankey
 sources, targets, values, link_colors = [], [], [], []
 labels = df.index.tolist()
-
-# Obtener colores para nodos (versión vibrante)
 node_colors = [coverage_colors.get(label, '#BDBDBD') for label in labels]
 
 for i in range(len(labels)):
@@ -213,7 +264,6 @@ for i in range(len(labels)):
                 values.append(val)
                 link_colors.append(coverage_colors.get(labels[i], '#BDBDBD'))
 
-# Verificar si hay datos para mostrar
 if len(sources) > 0:
     fig_sankey = go.Figure(data=[go.Sankey(
         node=dict(
@@ -229,21 +279,20 @@ if len(sources) > 0:
             target=targets,
             value=values,
             color=link_colors,
-            hovertemplate='<b>%{source.label}</b> → <b>%{target.label}</b><br>'
-                         'Área: %{value:,.0f} ha<br>'
-                         'Porcentaje: %{value:.1f}%<extra></extra>'
+            hovertemplate=f'<b>%{{source.label}}</b> → <b>%{{target.label}}</b><br>'
+                         f'Área: %{{value:,.0f}} ha<br>'
+                         f'Porcentaje: %{{value:.1f}}%<extra></extra>'
         )
     )])
     
-    # Tamaños de texto duplicados y negrita
     fig_sankey.update_layout(
-        height=1000,  # Aumentado para acomodar texto más grande
-        font=dict(size=24, weight='bold', color='black', family='Arial'),  # Duplicado (12->24) y negrita
+        height=1000,
+        font=dict(size=24, weight='bold', color='black', family='Arial'),
         title=dict(
-            text="Principales transiciones entre coberturas (hectáreas)",
-            font=dict(size=32, weight='bold', color='black')  # Título más grande y negrita
+            text=f"Principales transiciones entre coberturas (hectáreas) - {year_start} → {year_end}",
+            font=dict(size=32, weight='bold', color='black')
         ),
-        hoverlabel=dict(bgcolor="white", font_size=24, font_family="Arial", font_weight='bold')  # Duplicado
+        hoverlabel=dict(bgcolor="white", font_size=24, font_family="Arial", font_weight='bold')
     )
     
     st.plotly_chart(fig_sankey, use_container_width=True)
@@ -259,31 +308,30 @@ if len(sources) > 0:
 else:
     st.warning(f"No hay transiciones mayores a {threshold:,.0f} hectáreas. Reduce el umbral para ver más flujos.")
 
-# ==================== MATRIZ COMPLETA CON HEATMAP (TAMAÑO TEXTO DUPLICADO, NEGRITA) ====================
+# ==================== MATRIZ COMPLETA CON HEATMAP ====================
 with st.expander("📋 Matriz Completa de Transiciones - Heatmap Interactivo", expanded=False):
     
     fig_heat = px.imshow(
         df,
         text_auto=True,
-        color_continuous_scale="RdBu_r",  # Se mantiene pero con mejoras de texto
+        color_continuous_scale="RdBu_r",
         aspect="auto",
-        labels=dict(x="Cobertura en 2024", y="Cobertura en 2023", color="Hectáreas"),
-        title="Matriz de Transiciones 2023 → 2024"
+        labels=dict(x=f"Cobertura en {year_end}", y=f"Cobertura en {year_start}", color="Hectáreas"),
+        title=f"Matriz de Transiciones {year_start} → {year_end}"
     )
     
-    # Tamaños duplicados y negrita en textos y ejes
     fig_heat.update_traces(
         texttemplate='%{z:,.0f}',
-        textfont=dict(size=20, color='black', weight='bold'),  # Duplicado (10->20) y negrita
-        hovertemplate='<b>%{y}</b> → <b>%{x}</b><br>Área: %{z:,.0f} ha<extra></extra>'
+        textfont=dict(size=20, color='black', weight='bold'),
+        hovertemplate=f'<b>%{{y}}</b> → <b>%{{x}}</b><br>Área: %{{z:,.0f}} ha<extra></extra>'
     )
     
     fig_heat.update_layout(
-        height=1000,  # Aumentado para mejor legibilidad
-        font=dict(size=22, weight='bold'),  # Duplicado (11->22) y negrita
-        xaxis=dict(tickangle=45, tickfont=dict(size=20, weight='bold')),  # Duplicado y negrita
-        yaxis=dict(tickfont=dict(size=20, weight='bold')),  # Duplicado y negrita
-        title_font=dict(size=28, weight='bold')  # Título más grande
+        height=1000,
+        font=dict(size=22, weight='bold'),
+        xaxis=dict(tickangle=45, tickfont=dict(size=20, weight='bold')),
+        yaxis=dict(tickfont=dict(size=20, weight='bold')),
+        title_font=dict(size=28, weight='bold')
     )
     
     st.plotly_chart(fig_heat, use_container_width=True)
@@ -307,7 +355,6 @@ summary_table = pd.DataFrame({
 summary_table = summary_table.sort_values("Cambio Neto (ha)", ascending=False)
 
 def color_negative_red(val):
-    """Aplica color rojo a valores negativos y verde a positivos"""
     if isinstance(val, (int, float)):
         if val > 0:
             return 'color: #00CC96'
@@ -315,7 +362,6 @@ def color_negative_red(val):
             return 'color: #EF553B'
     return ''
 
-# CORREGIDO: applymap -> map (pandas 2.1+)
 styled_table = summary_table.style.format({
     "Cambio Neto (ha)": "{:,.0f}",
     "Porcentaje del total": "{:.2f}%"
@@ -331,9 +377,9 @@ col_download1, col_download2, col_download3 = st.columns(3)
 with col_download1:
     csv_net = summary_table.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="📥 Cambios Netos (CSV)",
+        label=f"📥 Cambios Netos ({year_start}-{year_end}).csv",
         data=csv_net,
-        file_name="cambios_netos_2023-2024.csv",
+        file_name=f"cambios_netos_{year_start}_{year_end}.csv",
         mime="text/csv",
         use_container_width=True
     )
@@ -341,9 +387,9 @@ with col_download1:
 with col_download2:
     csv_matrix = df.to_csv().encode('utf-8')
     st.download_button(
-        label="📥 Matriz Completa (CSV)",
+        label=f"📥 Matriz Completa ({year_start}-{year_end}).csv",
         data=csv_matrix,
-        file_name="matriz_transiciones_2023-2024.csv",
+        file_name=f"matriz_transiciones_{year_start}_{year_end}.csv",
         mime="text/csv",
         use_container_width=True
     )
@@ -375,29 +421,31 @@ with col_download3:
     })
     csv_stats = stats_df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="📥 Estadísticas (CSV)",
+        label=f"📥 Estadísticas ({year_start}-{year_end}).csv",
         data=csv_stats,
-        file_name="estadisticas_2023-2024.csv",
+        file_name=f"estadisticas_{year_start}_{year_end}.csv",
         mime="text/csv",
         use_container_width=True
     )
 
 # ==================== PIE DE PÁGINA ====================
 st.divider()
-st.caption("""
-**🌳 Tablero de Análisis de Cobertura del Suelo** | Datos: 2023 → 2024  
+st.caption(f"""
+**🌳 Tablero de Análisis de Cobertura del Suelo** | Datos: {year_start} → {year_end}  
 🎨 Colores mejorados y más vibrantes por tipo de cobertura | Textos en negrita y tamaño aumentado para mejor visibilidad  
 📌 Los valores positivos indican ganancias de área, los negativos pérdidas  
 🔄 Actualiza el Excel y reinicia la app para nuevos análisis
 """)
 
-# Información de dependencias
+# Información técnica
 with st.expander("ℹ️ Información técnica"):
     st.markdown("**Dependencias requeridas:**")
     st.code("pip install streamlit pandas plotly numpy openpyxl", language="bash")
     st.markdown("**Estructura del archivo Excel:**")
     st.markdown("- Hoja llamada: `Hoja1`")
-    st.markdown("- Formato: Matriz cuadrada donde filas = coberturas en 2023, columnas = coberturas en 2024")
+    st.markdown("- Formato: Matriz cuadrada donde filas = coberturas en el año inicial, columnas = coberturas en el año final")
     st.markdown("- Valores: Hectáreas de transición")
+    st.markdown("**Detección de años:**")
+    st.markdown("Los años se extraen automáticamente del nombre del archivo (ej. `2023-2024.xlsx`, `2020_2021_datos.xlsx`). Si no se detectan, puedes ingresarlos manualmente en la barra lateral.")
     st.markdown("**Ejecutar la app:**")
     st.code("streamlit run app.py", language="bash")
