@@ -11,10 +11,10 @@ st.set_page_config(page_title="Cambios Cobertura 2023-2024", layout="wide", page
 st.title("🌳 Tablero Ejecutivo: Cambios en Cobertura del Suelo 2023-2024")
 st.markdown("**Análisis de transiciones 2023 → 2024** | Ganancias (+) y Pérdidas (-) en hectáreas")
 
-# ==================== DEFINICIÓN DE COLORES POR TIPO DE COBERTURA ====================
+# ==================== DEFINICIÓN DE COLORES POR TIPO DE COBERTURA (VIBRANTES) ====================
 def get_coverage_colors(coverage_names):
     """
-    Asigna colores según el tipo de cobertura del suelo
+    Asigna colores más vibrantes y contrastados según el tipo de cobertura del suelo
     """
     color_map = {}
     
@@ -23,43 +23,43 @@ def get_coverage_colors(coverage_names):
         
         # Bosques y vegetación natural
         if any(word in name_lower for word in ['bosque', 'forest', 'selva', 'jungla']):
-            color_map[name] = '#2E8B57'  # Verde marino
+            color_map[name] = '#00A86B'  # Verde jade vibrante
         elif any(word in name_lower for word in ['arbusto', 'matorral', 'shrub']):
-            color_map[name] = '#228B22'  # Verde bosque
+            color_map[name] = '#00C853'  # Verde brillante
         elif any(word in name_lower for word in ['pastizal', 'pasture', 'herbácea']):
-            color_map[name] = '#9ACD32'  # Verde amarillento
+            color_map[name] = '#C0FF00'  # Lima eléctrico
             
         # Áreas agrícolas
         elif any(word in name_lower for word in ['agrícola', 'agriculture', 'cultivo', 'crop']):
-            color_map[name] = '#FFD700'  # Dorado
+            color_map[name] = '#FFEA00'  # Amarillo intenso
         elif any(word in name_lower for word in ['pasto', 'ganadero', 'livestock']):
-            color_map[name] = '#DAA520'  # Oro viejo
+            color_map[name] = '#FFC107'  # Ámbar vibrante
             
         # Áreas urbanas e infraestructura
         elif any(word in name_lower for word in ['urbano', 'urban', 'ciudad', 'city']):
-            color_map[name] = '#FF6347'  # Rojo tomate
+            color_map[name] = '#FF3D00'  # Naranja profundo
         elif any(word in name_lower for word in ['infraestructura', 'infrastructure', 'carretera']):
-            color_map[name] = '#8B4513'  # Marrón silla
+            color_map[name] = '#D84315'  # Naranja terracota
             
         # Cuerpos de agua
         elif any(word in name_lower for word in ['agua', 'water', 'río', 'river', 'lago', 'lake']):
-            color_map[name] = '#4169E1'  # Azul real
+            color_map[name] = '#2979FF'  # Azul eléctrico
         elif any(word in name_lower for word in ['humedal', 'wetland']):
-            color_map[name] = '#4682B4'  # Azul acero
+            color_map[name] = '#00B0FF'  # Azul claro brillante
             
         # Suelos desnudos o erosionados
         elif any(word in name_lower for word in ['suelo', 'soil', 'desnudo', 'bare', 'erosion']):
-            color_map[name] = '#D2B48C'  # Marrón claro
+            color_map[name] = '#FFB74D'  # Naranja claro
         elif any(word in name_lower for word in ['minería', 'mining']):
-            color_map[name] = '#A0522D'  # Marrón siesta
+            color_map[name] = '#E64A19'  # Naranja quemado
             
         # Áreas protegidas
         elif any(word in name_lower for word in ['protegido', 'protected', 'reserva']):
-            color_map[name] = '#3CB371'  # Verde medio
+            color_map[name] = '#00E676'  # Verde neón
             
         # Por defecto
         else:
-            color_map[name] = '#808080'  # Gris
+            color_map[name] = '#BDBDBD'  # Gris medio
     
     return color_map
 
@@ -108,7 +108,7 @@ col2.metric("Ganadoras netas", (net_change > 0).sum(), help="Coberturas que aume
 col3.metric("Perdedoras netas", (net_change < 0).sum(), help="Coberturas que disminuyeron su área")
 col4.metric("Balance neto", f"{net_change.sum():+,.0f} ha", help="Cambio total neto (ganancias - pérdidas)")
 
-# ==================== GRÁFICO DE CAMBIO NETO ====================
+# ==================== GRÁFICO DE CAMBIO NETO (TAMAÑO TEXTO DUPLICADO, NEGRITA, COLORES VIBRANTES) ====================
 st.subheader("📈 Cambio Neto por Cobertura (hectáreas)")
 
 net_df = pd.DataFrame({
@@ -116,11 +116,11 @@ net_df = pd.DataFrame({
     "Cambio Neto (ha)": net_change.values
 }).sort_values("Cambio Neto (ha)", ascending=False)
 
-# Obtener colores para las coberturas
+# Obtener colores mejorados para las coberturas
 coverage_colors = get_coverage_colors(net_df["Cobertura"].tolist())
 net_df["Color"] = net_df["Cobertura"].map(coverage_colors)
 
-# Crear gráfico de barras con colores personalizados
+# Crear gráfico de barras con colores personalizados y formato mejorado
 fig_net = px.bar(
     net_df, 
     x="Cambio Neto (ha)", 
@@ -128,33 +128,33 @@ fig_net = px.bar(
     orientation="h",
     color="Cobertura",
     color_discrete_map=coverage_colors,
-    height=700,
+    height=900,  # Aumentado para mejor visibilidad con texto más grande
     text="Cambio Neto (ha)"
 )
 
-# Mejorar formato del gráfico
+# Mejorar formato del gráfico: tamaños duplicados y negritas
 fig_net.update_traces(
     texttemplate='%{text:,.0f} ha',
     textposition='outside',
-    textfont=dict(size=10, color='black')
+    textfont=dict(size=20, color='black', weight='bold')  # Tamaño duplicado (10->20) y negrita
 )
 fig_net.update_layout(
     yaxis=dict(
         categoryorder="total ascending",
         title="Cobertura del Suelo",
-        title_font_size=14,
-        tickfont_size=11
+        title_font=dict(size=28, weight='bold'),  # Duplicado (14->28) y negrita
+        tickfont=dict(size=22, weight='bold')     # Duplicado (11->22) y negrita
     ),
     xaxis=dict(
         title="Cambio Neto (hectáreas)",
-        title_font_size=14,
-        tickfont_size=11,
+        title_font=dict(size=28, weight='bold'),  # Duplicado y negrita
+        tickfont=dict(size=22, weight='bold'),    # Duplicado y negrita
         gridcolor='lightgray'
     ),
     showlegend=False,
     plot_bgcolor='white',
-    height=700,
-    margin=dict(l=10, r=10, t=40, b=40)
+    margin=dict(l=10, r=10, t=40, b=40),
+    font=dict(weight='bold')  # Negrita global por si acaso
 )
 
 st.plotly_chart(fig_net, use_container_width=True)
@@ -182,7 +182,7 @@ with col_b:
     else:
         st.info("No hay coberturas con pérdidas netas")
 
-# ==================== DIAGRAMA DE SANKEY MEJORADO ====================
+# ==================== DIAGRAMA DE SANKEY MEJORADO (TAMAÑO TEXTO DUPLICADO, NEGRITA) ====================
 st.subheader("🔄 Flujos de Transición (Sankey)")
 
 # Slider para umbral
@@ -200,8 +200,8 @@ threshold = st.slider(
 sources, targets, values, link_colors = [], [], [], []
 labels = df.index.tolist()
 
-# Obtener colores para nodos
-node_colors = [coverage_colors.get(label, '#808080') for label in labels]
+# Obtener colores para nodos (versión vibrante)
+node_colors = [coverage_colors.get(label, '#BDBDBD') for label in labels]
 
 for i in range(len(labels)):
     for j in range(len(labels)):
@@ -211,7 +211,7 @@ for i in range(len(labels)):
                 sources.append(i)
                 targets.append(j)
                 values.append(val)
-                link_colors.append(coverage_colors.get(labels[i], '#808080'))
+                link_colors.append(coverage_colors.get(labels[i], '#BDBDBD'))
 
 # Verificar si hay datos para mostrar
 if len(sources) > 0:
@@ -235,14 +235,15 @@ if len(sources) > 0:
         )
     )])
     
+    # Tamaños de texto duplicados y negrita
     fig_sankey.update_layout(
-        height=800,
-        font=dict(size=12, color='black', family='Arial'),
+        height=1000,  # Aumentado para acomodar texto más grande
+        font=dict(size=24, weight='bold', color='black', family='Arial'),  # Duplicado (12->24) y negrita
         title=dict(
             text="Principales transiciones entre coberturas (hectáreas)",
-            font=dict(size=16, color='black')
+            font=dict(size=32, weight='bold', color='black')  # Título más grande y negrita
         ),
-        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial")
+        hoverlabel=dict(bgcolor="white", font_size=24, font_family="Arial", font_weight='bold')  # Duplicado
     )
     
     st.plotly_chart(fig_sankey, use_container_width=True)
@@ -258,29 +259,31 @@ if len(sources) > 0:
 else:
     st.warning(f"No hay transiciones mayores a {threshold:,.0f} hectáreas. Reduce el umbral para ver más flujos.")
 
-# ==================== MATRIZ COMPLETA CON HEATMAP ====================
+# ==================== MATRIZ COMPLETA CON HEATMAP (TAMAÑO TEXTO DUPLICADO, NEGRITA) ====================
 with st.expander("📋 Matriz Completa de Transiciones - Heatmap Interactivo", expanded=False):
     
     fig_heat = px.imshow(
         df,
         text_auto=True,
-        color_continuous_scale="RdBu_r",
+        color_continuous_scale="RdBu_r",  # Se mantiene pero con mejoras de texto
         aspect="auto",
         labels=dict(x="Cobertura en 2024", y="Cobertura en 2023", color="Hectáreas"),
         title="Matriz de Transiciones 2023 → 2024"
     )
     
+    # Tamaños duplicados y negrita en textos y ejes
     fig_heat.update_traces(
         texttemplate='%{z:,.0f}',
-        textfont=dict(size=10, color='black'),
+        textfont=dict(size=20, color='black', weight='bold'),  # Duplicado (10->20) y negrita
         hovertemplate='<b>%{y}</b> → <b>%{x}</b><br>Área: %{z:,.0f} ha<extra></extra>'
     )
     
     fig_heat.update_layout(
-        height=800,
-        font=dict(size=11),
-        xaxis=dict(tickangle=45, tickfont=dict(size=10)),
-        yaxis=dict(tickfont=dict(size=10))
+        height=1000,  # Aumentado para mejor legibilidad
+        font=dict(size=22, weight='bold'),  # Duplicado (11->22) y negrita
+        xaxis=dict(tickangle=45, tickfont=dict(size=20, weight='bold')),  # Duplicado y negrita
+        yaxis=dict(tickfont=dict(size=20, weight='bold')),  # Duplicado y negrita
+        title_font=dict(size=28, weight='bold')  # Título más grande
     )
     
     st.plotly_chart(fig_heat, use_container_width=True)
@@ -383,7 +386,7 @@ with col_download3:
 st.divider()
 st.caption("""
 **🌳 Tablero de Análisis de Cobertura del Suelo** | Datos: 2023 → 2024  
-🎨 Colores por tipo de cobertura: Verde (bosques/vegetación) | Amarillo (agrícola) | Rojo (urbano) | Azul (agua) | Marrón (suelo/minería)  
+🎨 Colores mejorados y más vibrantes por tipo de cobertura | Textos en negrita y tamaño aumentado para mejor visibilidad  
 📌 Los valores positivos indican ganancias de área, los negativos pérdidas  
 🔄 Actualiza el Excel y reinicia la app para nuevos análisis
 """)
